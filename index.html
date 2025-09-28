@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jeopardy - El Tesoro de lo Ordinario</title>
+
+  <!-- Tailwind CDN (OK en GitHub Pages) -->
+  <script src="https://cdn.tailwindcss.com" defer></script>
+
+  <!-- Metadatos útiles para compartir -->
+  <meta name="description" content="Jeopardy educativo: El Tesoro de lo Ordinario. Concurso para 6.º y 7.º." />
+  <meta property="og:title" content="Jeopardy - El Tesoro de lo Ordinario" />
+  <meta property="og:description" content="Concurso educativo estilo Jeopardy para 6.º y 7.º grado." />
+  <meta property="og:type" content="website" />
+
+  <style>
+    /* Fuente */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+
+    :root {
+      --primary: #1d4ed8;
+      --primary-600: #1e40af;
+      --played-bg: #3b82f6;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background-color: #f0f4f8;
+    }
+
+    .jeopardy-cell {
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,.1);
+      user-select: none;
+      outline: none;
+    }
+    .jeopardy-cell:hover:not(.played):not(:disabled),
+    .jeopardy-cell:focus-visible:not(.played):not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px rgba(0,0,0,.18);
+    }
+    .played {
+      background-color: var(--played-bg) !important;
+      color: #d1d5db !important;
+      cursor: default;
+      pointer-events: none;
+      text-shadow: 0 0 5px rgba(0,0,0,.4);
+    }
+    .question-card {
+      border-radius: 1rem;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,.2), 0 10px 10px -5px rgba(0,0,0,.1);
+    }
+    .option-button { transition: background-color 0.15s; }
+    .color-primary { background-color: var(--primary); }
+
+    /* Accesibilidad: foco visible para teclado */
+    .focus-ring:focus-visible {
+      outline: 3px solid #f59e0b; /* ámbar */
+      outline-offset: 2px;
+    }
+
+    /* Respeta usuarios con reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      .jeopardy-cell { transition: none; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen p-4 sm:p-8 flex flex-col items-center">
+  <!-- Enlace para saltar al tablero con teclado -->
+  <a href="#tablero" class="sr-only focus:not-sr-only focus-ring bg-white px-3 py-2 rounded-lg shadow mb-2">Saltar al tablero</a>
+
+  <header class="text-center mb-6 sm:mb-8 w-full max-w-5xl">
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-[var(--primary)] mb-2">
+      ¡Feliz 2 de Octubre! Jeopardy de la Obra de Dios
+    </h1>
+    <p class="text-lg text-gray-700">El Tesoro de lo Ordinario: Concurso para 6.º y 7.º grado.</p>
+
+    <div class="mt-4 flex flex-col sm:flex-row gap-2 sm:gap-4 justify-center items-center">
+      <button id="reset-btn" class="focus-ring bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg shadow">
+        Reiniciar tablero
+      </button>
+      <span id="status-label" class="text-sm text-gray-600">
+        Casillas jugadas: <strong id="played-count">0</strong> / 25
+      </span>
+      <button id="help-btn" class="focus-ring bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium px-3 py-2 rounded-lg border">
+        ¿Cómo jugar?
+      </button>
+    </div>
+  </header>
+
+  <!-- TABLERO -->
+  <main id="board-screen" class="w-full max-w-5xl" aria-label="Tablero Jeopardy">
+    <section id="tablero" class="grid grid-cols-5 gap-2 sm:gap-4" role="grid">
+      <!-- Encabezados de categorías -->
+      <div role="columnheader" class="color-primary text-white font-extrabold text-xs sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">EL FUNDADOR</div>
+      <div role="columnheader" class="color-primary text-white font-extrabold text-xs sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">SANTIDAD DIARIA</div>
+      <div role="columnheader" class="color-primary text-white font-extrabold text-xs sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">2 DE OCTUBRE</div>
+      <div role="columnheader" class="color-primary text-white font-extrabold text-xs sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">LUGARES CLAVE</div>
+      <div role="columnheader" class="color-primary text-white font-extrabold text-xs sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">AMIGOS DEL CIELO</div>
+      <!-- Las celdas se generan por JS -->
+    </section>
+  </main>
+
+  <!-- PANTALLA DE PREGUNTA -->
+  <div id="question-screen" class="hidden w-full max-w-5xl fixed inset-0 bg-gray-900/95 flex items-center justify-center p-4 z-50" aria-modal="true" role="dialog" aria-labelledby="q-heading">
+    <div class="question-card bg-white p-6 sm:p-10 w-full max-w-3xl flex flex-col gap-6">
+      <h2 id="q-heading" class="text-xl sm:text-3xl font-bold text-gray-800">
+        <span id="q-category" class="text-blue-600"></span> · <span id="q-points" class="text-red-600"></span> pts
+      </h2>
+
+      <!-- Enunciado -->
+      <div class="bg-yellow-50 p-4 sm:p-6 rounded-lg border-2 border-yellow-300">
+        <p id="q-text" class="text-lg sm:text-2xl font-semibold text-gray-900"></p>
+      </div>
+
+      <!-- Opciones -->
+      <div id="options-container" class="space-y-3"></div>
+
+      <!-- Feedback y acciones -->
+      <div id="feedback-area" class="mt-4 space-y-4">
+        <p id="q-feedback" class="text-center text-xl sm:text-2xl font-bold hidden"></p>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button id="back-btn" class="focus-ring w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow">
+            Volver al Tablero
+          </button>
+          <button id="next-unplayed-btn" class="focus-ring w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg shadow">
+            Ir a la siguiente sin jugar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ayuda -->
+  <div id="help-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-lg">
+      <h3 class="text-xl font-bold mb-2">¿Cómo jugar?</h3>
+      <ul class="list-disc pl-5 text-gray-700 space-y-1">
+        <li>Elige una casilla (100 a 500 puntos). Se abrirá la pregunta.</li>
+        <li>Haz clic en la opción correcta. Se marcará en verde; si fallas, se marcará tu elección en rojo.</li>
+        <li>Presiona “Volver al Tablero” para continuar. La casilla quedará como “JUGADA”.</li>
+        <li>Usa “Reiniciar tablero” para empezar de nuevo.</li>
+      </ul>
+      <div class="mt-4 text-right">
+        <button id="close-help" class="focus-ring bg-gray-800 hover:bg-black text-white px-4 py-2 rounded-lg">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ------- Datos del juego -------
+    const QUESTIONS = [
+      { category: "El Fundador", questions: [
+        { points: 100, text: "¿Quién es el santo que Dios eligió para fundar el Opus Dei?", options: ["A) San Pedro", "B) San Josemaría Escrivá", "C) San Juan Pablo II", "D) San Francisco de Asís"], correct: 1 },
+        { points: 200, text: "¿Cuál de estos es el nombre completo y correcto del Fundador?", options: ["A) Josemaría López García", "B) San Josemaría Escrivá de Balaguer", "C) Jose María Robles", "D) José Luis Pérez Escrivá"], correct: 1 },
+        { points: 300, text: "¿A qué edad San Josemaría sintió claramente su vocación, al ver unas huellas en la nieve?", options: ["A) 10 años", "B) 16 años", "C) 25 años", "D) 18 años"], correct: 1 },
+        { points: 400, text: "¿Cuál fue la profesión que estudió San Josemaría antes de ordenarse sacerdote?", options: ["A) Arquitecto", "B) Abogado", "C) Médico", "D) Periodista"], correct: 1 },
+        { points: 500, text: "¿Cuál de estos libros famosos de San Josemaría contiene 999 puntos de meditación?", options: ["A) Amigos de Dios", "B) Surco", "C) Forja", "D) Camino"], correct: 3 },
+      ]},
+      { category: "Santidad Diaria", questions: [
+        { points: 100, text: "¿Dónde nos enseña el Opus Dei que debemos buscar a Dios?", options: ["A) Solo en la Iglesia", "B) En el campo y la naturaleza", "C) En el trabajo y la vida ordinaria", "D) En mis sueños"], correct: 2 },
+        { points: 200, text: "El Fundador decía que nuestro trabajo o estudio, si lo hacemos bien, se convierte en:", options: ["A) Carga", "B) Fiesta", "C) Oración", "D) Tarea"], correct: 2 },
+        { points: 300, text: "¿Cuál es la mejor manera de ayudar a nuestros amigos a ser mejores, según la Obra?", options: ["A) Dándoles sermones", "B) Criticándolos", "C) Con la amistad sincera y el ejemplo", "D) Regalándoles dulces"], correct: 2 },
+        { points: 400, text: "San Josemaría llamaba 'el gran medio' para ser buenos cristianos a la:", options: ["A) Santificación del trabajo", "B) Santa Misa diaria", "C) Lectura constante", "D) Peregrinación"], correct: 0 },
+        { points: 500, text: "¿Cómo debe ser el trabajo que ofrecemos a Dios para que sea una ofrenda digna y valiosa?", options: ["A) Rápido y sencillo", "B) Bien hecho, con perfección y cariño", "C) Aburrido", "D) Solo lo necesario"], correct: 1 },
+      ]},
+      { category: "2 de Octubre", questions: [
+        { points: 100, text: "¿En qué año Dios le mostró a San Josemaría el Opus Dei, el 2 de octubre?", options: ["A) 1902", "B) 1928", "C) 1943", "D) 2002"], correct: 1 },
+        { points: 200, text: "¿Qué significa la expresión 'Opus Dei' en latín?", options: ["A) El Camino", "B) La Obra del Cielo", "C) Obra de Dios", "D) El Trabajo"], correct: 2 },
+        { points: 300, text: "¿Qué Arcángel celebra la Iglesia su fiesta el 2 de octubre, el día de la fundación?", options: ["A) San Miguel", "B) San Rafael", "C) San Gabriel", "D) San Uriel"], correct: 2 },
+        { points: 400, text: "Las tres ideas clave de la misión son: Santificar el trabajo, Santificarse en el trabajo y...", options: ["A) Santificar a la familia", "B) Santificar los domingos", "C) Santificar a los demás con el trabajo", "D) Santificar el ocio"], correct: 2 },
+        { points: 500, text: "¿Cuál es la figura que tiene el Opus Dei en la estructura de la Iglesia, desde 1982?", options: ["A) Una Congregación Religiosa", "B) Una Diócesis", "C) Una Prelatura Personal", "D) Una Orden Militar"], correct: 2 },
+      ]},
+      { category: "Lugares Clave", questions: [
+        { points: 100, text: "¿En qué ciudad de España nació San Josemaría Escrivá?", options: ["A) Madrid", "B) Barcelona", "C) Barbastro", "D) Zaragoza"], correct: 2 },
+        { points: 200, text: "¿Dónde está la Sede Central (la casa del Padre) del Opus Dei?", options: ["A) España", "B) México", "C) Francia", "D) Roma (Italia)"], correct: 3 },
+        { points: 300, text: "¿Cuál es el nombre de la importante Universidad promovida por el Fundador en España?", options: ["A) Universidad Complutense", "B) Universidad de Navarra", "C) Universidad de Salamanca", "D) Universidad de Alcalá"], correct: 1 },
+        { points: 400, text: "¿Cómo se llamó la primera gran labor apostólica del Opus Dei, en Madrid, en 1933?", options: ["A) DYA (Derecho y Arquitectura)", "B) DYS (Dios y Servicio)", "C) ADY (Amor y Deber)", "D) YAD (Yo Amo a Dios)"], correct: 0 },
+        { points: 500, text: "¿En qué Iglesia de Roma se encuentran los restos de San Josemaría?", options: ["A) San Pedro", "B) Santa María Mayor", "C) Nuestra Señora de la Paz", "D) San Juan de Letrán"], correct: 2 },
+      ]},
+      { category: "Amigos del Cielo", questions: [
+        { points: 100, text: "¿Quién fue el sucesor de San Josemaría, que fue beatificado y era su amigo más cercano?", options: ["A) San Juan Pablo II", "B) Beato Álvaro del Portillo", "C) San Pedro", "D) San Pío X"], correct: 1 },
+        { points: 200, text: "¿A qué ángel nos invita San Josemaría a tratar con confianza y a pedirle ayuda a menudo?", options: ["A) San Miguel Arcángel", "B) El Ángel de la Guarda", "C) San Rafael Arcángel", "D) San Gabriel Arcángel"], correct: 1 },
+        { points: 300, text: "¿Cuál es la fiesta de la Virgen María que es la patrona principal del Opus Dei?", options: ["A) Virgen de Guadalupe", "B) Maternidad divina de María", "C) Inmaculada Concepción", "D) Asunción"], correct: 1 },
+        { points: 400, text: "¿Cuántos son los Patronos que celebra el Opus Dei?", options: ["A) Tres", "B) Dos", "C) Cinco", "D) Cuatro"], correct: 2 },
+        { points: 500, text: "¿Qué día de la semana invitaba San Josemaría a honrar de modo especial a la Eucaristía?", options: ["A) Domingo", "B) Jueves", "C) Sábado", "D) Viernes"], correct: 1 },
+      ]},
+    ];
+
+    // ------- Estado -------
+    const BOARD_ELEMENT = document.getElementById('board-screen');
+    const BOARD_GRID = document.querySelector('#tablero');
+    const QUESTION_ELEMENT = document.getElementById('question-screen');
+    const PLAYED_COUNT = document.getElementById('played-count');
+    const STATUS_LABEL = document.getElementById('status-label');
+    const RESET_BTN = document.getElementById('reset-btn');
+    const HELP_BTN = document.getElementById('help-btn');
+    const HELP_MODAL = document.getElementById('help-modal');
+    const CLOSE_HELP = document.getElementById('close-help');
+    const BACK_BTN = document.getElementById('back-btn');
+    const NEXT_UNPLAYED_BTN = document.getElementById('next-unplayed-btn');
+
+    let currentQuestion = null;          // { catIndex, qIndex, data }
+    let playedKeys = new Set();          // ej. "0-100"
+    const STORAGE_KEY = "jeopardy-played-v1";
+
+    // ------- Utilidades -------
+    const keyFor = (catIndex, points) => `${catIndex}-${points}`;
+    const persist = () => localStorage.setItem(STORAGE_KEY, JSON.stringify([...playedKeys]));
+    const load = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) playedKeys = new Set(JSON.parse(raw));
+      } catch { playedKeys = new Set(); }
+    };
+    const updatePlayedCounter = () => {
+      PLAYED_COUNT.textContent = String(playedKeys.size);
+      if (playedKeys.size >= 25) {
+        STATUS_LABEL.innerHTML = 'Casillas jugadas: <strong>25</strong> / 25 · ¡Tablero completo!';
+      }
+    };
+
+    // ------- Render del tablero -------
+    function createBoard() {
+      // Genera 5 filas (100→500) x 5 columnas
+      for (let qIndex = 0; qIndex < 5; qIndex++) {
+        for (let catIndex = 0; catIndex < 5; catIndex++) {
+          const catData = QUESTIONS[catIndex];
+          const q = catData.questions[qIndex];
+
+          const cell = document.createElement('button');
+          cell.type = "button";
+          cell.className = 'jeopardy-cell focus-ring bg-blue-500 hover:bg-blue-600 text-white font-black text-2xl sm:text-4xl p-4 text-center flex items-center justify-center h-20 sm:h-28';
+          cell.setAttribute('role', 'gridcell');
+          cell.setAttribute('aria-label', `${catData.category}, ${q.points} puntos`);
+          cell.dataset.key = keyFor(catIndex, q.points);
+          cell.textContent = q.points;
+          cell.addEventListener('click', () => showQuestion(catIndex, qIndex));
+          cell.addEventListener('keydown', (e) => {
+            // activar con Enter o Space
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              showQuestion(catIndex, qIndex);
+            }
+          });
+
+          // Si ya se jugó, márcala
+          if (playedKeys.has(cell.dataset.key)) {
+            markCellPlayed(cell);
+          }
+
+          BOARD_GRID.appendChild(cell);
+        }
+      }
+      updatePlayedCounter();
+    }
+
+    function markCellPlayed(cell) {
+      cell.classList.add('played');
+      cell.textContent = 'JUGADA';
+      cell.setAttribute('aria-disabled', 'true');
+      cell.disabled = true;
+    }
+
+    // ------- Vista de pregunta -------
+    function showQuestion(catIndex, qIndex) {
+      const catData = QUESTIONS[catIndex];
+      const qData = catData.questions[qIndex];
+      currentQuestion = { catIndex, qIndex, data: qData };
+
+      // Ocultar tablero, mostrar pregunta
+      BOARD_ELEMENT.classList.add('pointer-events-none'); // evita que el tab se cuele detrás
+      QUESTION_ELEMENT.classList.remove('hidden');
+
+      // Rellenar UI
+      document.getElementById('q-category').textContent = catData.category;
+      document.getElementById('q-points').textContent = qData.points;
+      document.getElementById('q-text').textContent = qData.text;
+
+      const feedback = document.getElementById('q-feedback');
+      feedback.classList.add('hidden');
+      feedback.textContent = '';
+
+      const options = document.getElementById('options-container');
+      options.innerHTML = '';
+
+      qData.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.type = "button";
+        btn.id = `option-${idx}`;
+        btn.className = 'option-button focus-ring w-full text-left bg-gray-100 hover:bg-yellow-100 text-gray-900 font-semibold py-3 px-4 rounded-lg shadow border-2 border-gray-200 text-base sm:text-xl';
+        btn.textContent = opt;
+        btn.addEventListener('click', () => checkAnswer(idx));
+        options.appendChild(btn);
+      });
+
+      // Enfocar primera opción para teclado
+      setTimeout(() => {
+        const first = document.getElementById('option-0');
+        if (first) first.focus();
+      }, 0);
+    }
+
+    function checkAnswer(selectedIndex) {
+      if (!currentQuestion) return;
+
+      const { data: qData } = currentQuestion;
+      const feedback = document.getElementById('q-feedback');
+      const container = document.getElementById('options-container');
+
+      // Deshabilitar opciones
+      Array.from(container.children).forEach(btn => {
+        btn.disabled = true;
+        btn.classList.remove('hover:bg-yellow-100');
+      });
+
+      // Correcta en verde
+      const correctBtn = document.getElementById(`option-${qData.correct}`);
+      correctBtn.classList.remove('bg-gray-100');
+      correctBtn.classList.add('bg-green-600', 'text-white', 'border-green-700');
+
+      if (selectedIndex !== qData.correct) {
+        const selectedBtn = document.getElementById(`option-${selectedIndex}`);
+        selectedBtn.classList.remove('bg-gray-100');
+        selectedBtn.classList.add('bg-red-500', 'text-white', 'border-red-700');
+        feedback.textContent = `¡INCORRECTO! La correcta está en verde. (Pierden ${qData.points} pts).`;
+        feedback.className = 'text-center text-xl sm:text-2xl font-bold text-red-600';
+      } else {
+        feedback.textContent = `¡CORRECTO! Ganan ${qData.points} puntos.`;
+        feedback.className = 'text-center text-xl sm:text-2xl font-bold text-green-600';
+      }
+      feedback.classList.remove('hidden');
+    }
+
+    function returnToBoard() {
+      if (!currentQuestion) return;
+
+      const key = keyFor(currentQuestion.catIndex, currentQuestion.data.points);
+      playedKeys.add(key);
+      persist();
+
+      // Marca la celda
+      const cell = document.querySelector(`[data-key="${key}"]`);
+      if (cell) markCellPlayed(cell);
+
+      // Oculta pregunta, vuelve al tablero
+      QUESTION_ELEMENT.classList.add('hidden');
+      BOARD_ELEMENT.classList.remove('pointer-events-none');
+      updatePlayedCounter();
+
+      // Enfoca la celda jugada para no perder el foco de teclado
+      if (cell) cell.focus();
+
+      currentQuestion = null;
+    }
+
+    function goToNextUnplayed() {
+      // Busca la primera celda sin jugar
+      const cells = Array.from(document.querySelectorAll('#tablero .jeopardy-cell'));
+      const next = cells.find(c => !c.classList.contains('played'));
+      if (next) {
+        next.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        next.focus();
+      } else {
+        alert('¡Ya jugaste todas las casillas! 🎉');
+      }
+    }
+
+    function resetBoard() {
+      if (!confirm('¿Reiniciar el tablero completo?')) return;
+      playedKeys.clear();
+      persist();
+      // Restaurar celdas
+      document.querySelectorAll('#tablero .jeopardy-cell').forEach(cell => {
+        cell.classList.remove('played');
+        cell.textContent = cell.dataset.key.split('-')[1]; // vuelve a puntos
+        cell.removeAttribute('aria-disabled');
+        cell.disabled = false;
+      });
+      updatePlayedCounter();
+    }
+
+    // ------- Eventos -------
+    document.addEventListener('keydown', (e) => {
+      // Esc para cerrar pregunta
+      if (e.key === 'Escape' && !QUESTION_ELEMENT.classList.contains('hidden')) {
+        returnToBoard();
+      }
+    });
+
+    BACK_BTN.addEventListener('click', returnToBoard);
+    NEXT_UNPLAYED_BTN.addEventListener('click', goToNextUnplayed);
+    RESET_BTN.addEventListener('click', resetBoard);
+    HELP_BTN.addEventListener('click', () => HELP_MODAL.classList.remove('hidden'));
+    CLOSE_HELP.addEventListener('click', () => HELP_MODAL.classList.add('hidden'));
+    HELP_MODAL.addEventListener('click', (e) => {
+      if (e.target === HELP_MODAL) HELP_MODAL.classList.add('hidden');
+    });
+
+    // ------- Inicio -------
+    window.addEventListener('DOMContentLoaded', () => {
+      load();
+      createBoard();
+    });
+  </script>
+</body>
+</html>
