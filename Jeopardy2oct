@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeopardy - El Tesoro de lo Ordinario</title>
+    <!-- Carga de Tailwind CSS para un diseño moderno y responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Fuente más adecuada para un tema educativo y clásico */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Fondo suave */
+        }
+        .jeopardy-cell {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border-radius: 0.5rem; /* Bordes redondeados */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            user-select: none; /* Evita selección de texto al hacer click */
+        }
+        .jeopardy-cell:hover:not(.played) {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+        }
+        .played {
+            background-color: #3b82f6 !important; /* Azul más oscuro cuando ya se jugó */
+            color: #d1d5db !important; /* Texto gris claro */
+            cursor: default;
+            pointer-events: none;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .question-card {
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        }
+        .option-button {
+            transition: background-color 0.15s;
+        }
+        /* Color principal: azul oscuro para un tono formativo */
+        .color-primary { background-color: #1d4ed8; } 
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 flex flex-col items-center">
+
+    <header class="text-center mb-6 sm:mb-8 w-full max-w-4xl">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-[#1d4ed8] mb-2">
+            ¡Feliz 2 de Octubre! Jeopardy de la Obra de Dios
+        </h1>
+        <p class="text-lg text-gray-600">
+            El Tesoro de lo Ordinario: Concurso para 6to y 7mo grado.
+        </p>
+    </header>
+
+    <!-- PANTALLA PRINCIPAL: EL TABLERO DE JEOPARDY -->
+    <main id="board-screen" class="w-full max-w-4xl">
+        <div class="grid grid-cols-5 gap-2 sm:gap-4">
+            
+            <!-- Fila de Categorías (Encabezados) -->
+            <div class="color-primary text-white font-extrabold text-sm sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">EL FUNDADOR</div>
+            <div class="color-primary text-white font-extrabold text-sm sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">SANTIDAD DIARIA</div>
+            <div class="color-primary text-white font-extrabold text-sm sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">2 DE OCTUBRE</div>
+            <div class="color-primary text-white font-extrabold text-sm sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">LUGARES CLAVE</div>
+            <div class="color-primary text-white font-extrabold text-sm sm:text-xl p-2 sm:p-4 text-center rounded-t-lg">AMIGOS DEL CIELO</div>
+
+            <!-- Las celdas de puntos se insertarán aquí para completar el tablero 5x5 -->
+        </div>
+    </main>
+
+    <!-- PANTALLA DE LA PREGUNTA -->
+    <div id="question-screen" class="hidden w-full max-w-4xl fixed inset-0 bg-gray-900 bg-opacity-95 flex items-center justify-center p-4 z-50">
+        <div class="question-card bg-white p-6 sm:p-10 w-full max-w-3xl flex flex-col space-y-6">
+            <p class="text-xl sm:text-3xl font-bold text-gray-700 mb-4">
+                <span id="q-category" class="text-blue-600"></span> - <span id="q-points" class="text-red-600"></span> puntos
+            </p>
+            
+            <!-- Área de la Pregunta -->
+            <div class="bg-yellow-50 p-4 sm:p-6 rounded-lg border-2 border-yellow-300">
+                <p id="q-text" class="text-lg sm:text-2xl font-semibold text-gray-800"></p>
+            </div>
+
+            <!-- Opciones de Respuesta -->
+            <div id="options-container" class="space-y-3">
+                <!-- Los botones se insertan aquí con JavaScript -->
+            </div>
+
+            <!-- Área de Mensajes y Botón de Regreso -->
+            <div id="feedback-area" class="mt-6 space-y-4">
+                <p id="q-feedback" class="text-center text-xl sm:text-2xl font-bold hidden"></p>
+                <button onclick="returnToBoard()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition duration-150 ease-in-out">
+                    Volver al Tablero
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración global y datos de las preguntas
+        const BOARD_ELEMENT = document.getElementById('board-screen');
+        const QUESTION_ELEMENT = document.getElementById('question-screen');
+
+        // Datos del juego: 5 categorías, 5 preguntas por categoría (100 a 500 puntos, en orden de dificultad creciente).
+        const QUESTIONS = [
+            // Categoría 1: EL FUNDADOR
+            { category: "El Fundador", questions: [
+                { points: 100, text: "¿Quién es el santo que Dios eligió para fundar el Opus Dei?", options: ["A) San Pedro", "B) San Josemaría Escrivá", "C) San Juan Pablo II", "D) San Francisco de Asís"], correct: 1 },
+                { points: 200, text: "¿Cuál de estos es el nombre completo y correcto del Fundador?", options: ["A) Josemaría López García", "B) San Josemaría Escrivá de Balaguer", "C) Jose María Robles", "D) José Luis Pérez Escrivá"], correct: 1 },
+                { points: 300, text: "¿A qué edad San Josemaría sintió claramente su vocación, al ver unas huellas en la nieve?", options: ["A) 10 años", "B) 16 años", "C) 25 años", "D) 18 años"], correct: 1 },
+                { points: 400, text: "¿Cuál fue la profesión que estudió San Josemaría antes de ordenarse sacerdote?", options: ["A) Arquitecto", "B) Abogado", "C) Médico", "D) Periodista"], correct: 1 },
+                { points: 500, text: "¿Cuál de estos libros famosos de San Josemaría contiene 999 puntos de meditación?", options: ["A) Amigos de Dios", "B) Surco", "C) Forja", "D) Camino"], correct: 3 },
+            ]},
+            // Categoría 2: SANTIDAD DIARIA
+            { category: "Santidad Diaria", questions: [
+                { points: 100, text: "¿Dónde nos enseña el Opus Dei que debemos buscar a Dios?", options: ["A) Solo en la Iglesia", "B) En el campo y la naturaleza", "C) En el trabajo y la vida ordinaria", "D) En mis sueños"], correct: 2 },
+                { points: 200, text: "El Fundador decía que nuestro trabajo o estudio, si lo hacemos bien, se convierte en:", options: ["A) Carga", "B) Fiesta", "C) Oración", "D) Tarea"], correct: 2 },
+                { points: 300, text: "¿Cuál es la mejor manera de ayudar a nuestros amigos a ser mejores, según la Obra?", options: ["A) Dándoles sermones", "B) Criticándolos", "C) Con la amistad sincera y el ejemplo", "D) Regalándoles dulces"], correct: 2 },
+                { points: 400, text: "San Josemaría llamaba 'el gran medio' para ser buenos cristianos a la:", options: ["A) Santificación del trabajo", "B) Santa Misa diaria", "C) Lectura constante", "D) Peregrinación"], correct: 0 },
+                { points: 500, text: "¿Cómo debe ser el trabajo que ofrecemos a Dios para que sea una ofrenda digna y valiosa?", options: ["A) Rápido y sencillo", "B) Bien hecho, con perfección y cariño", "C) Aburrido", "D) Solo lo necesario"], correct: 1 },
+            ]},
+            // Categoría 3: 2 DE OCTUBRE
+            { category: "2 de Octubre", questions: [
+                { points: 100, text: "¿En qué año Dios le mostró a San Josemaría el Opus Dei, el 2 de octubre?", options: ["A) 1902", "B) 1928", "C) 1943", "D) 2002"], correct: 1 },
+                { points: 200, text: "¿Qué significa la expresión 'Opus Dei' en latín?", options: ["A) El Camino", "B) La Obra del Cielo", "C) Obra de Dios", "D) El Trabajo"], correct: 2 },
+                { points: 300, text: "¿Qué Arcángel celebra la Iglesia su fiesta el 2 de octubre, el día de la fundación?", options: ["A) San Miguel", "B) San Rafael", "C) San Gabriel", "D) San Uriel"], correct: 2 },
+                { points: 400, text: "Las tres ideas clave de la misión son: Santificar el trabajo, Santificarse en el trabajo y...", options: ["A) Santificar a la familia", "B) Santificar los domingos", "C) Santificar a los demás con el trabajo", "D) Santificar el ocio"], correct: 2 },
+                { points: 500, text: "¿Cuál es la figura que tiene el Opus Dei en la estructura de la Iglesia, desde 1982?", options: ["A) Una Congregación Religiosa", "B) Una Diócesis", "C) Una Prelatura Personal", "D) Una Orden Militar"], correct: 2 },
+            ]},
+            // Categoría 4: LUGARES CLAVE
+            { category: "Lugares Clave", questions: [
+                { points: 100, text: "¿En qué ciudad de España nació San Josemaría Escrivá?", options: ["A) Madrid", "B) Barcelona", "C) Barbastro", "D) Zaragoza"], correct: 2 },
+                { points: 200, text: "¿Dónde está la Sede Central (la casa del Padre) del Opus Dei?", options: ["A) España", "B) México", "C) Francia", "D) Roma (Italia)"], correct: 3 },
+                { points: 300, text: "¿Cuál es el nombre de la importante Universidad promovida por el Fundador en España?", options: ["A) Universidad Complutense", "B) Universidad de Navarra", "C) Universidad de Salamanca", "D) Universidad de Alcalá"], correct: 1 },
+                { points: 400, text: "¿Cómo se llamó la primera gran labor apostólica del Opus Dei, en Madrid, en 1933?", options: ["A) DYA (Derecho y Arquitectura)", "B) DYS (Dios y Servicio)", "C) ADY (Amor y Deber)", "D) YAD (Yo Amo a Dios)"], correct: 0 },
+                { points: 500, text: "¿En qué Iglesia de Roma se encuentran los restos de San Josemaría?", options: ["A) San Pedro", "B) Santa María Mayor", "C) Nuestra Señora de la Paz", "D) San Juan de Letrán"], correct: 2 },
+            ]},
+            // Categoría 5: AMIGOS DEL CIELO
+            { category: "Amigos del Cielo", questions: [
+                { points: 100, text: "¿Quién fue el sucesor de San Josemaría, que fue beatificado y era su amigo más cercano?", options: ["A) San Juan Pablo II", "B) Beato Álvaro del Portillo", "C) San Pedro", "D) San Pío X"], correct: 1 },
+                { points: 200, text: "¿A qué ángel nos invita San Josemaría a tratar con confianza y a pedirle ayuda a menudo?", options: ["A) San Miguel Arcángel", "B) El Ángel de la Guarda", "C) San Rafael Arcángel", "D) San Gabriel Arcángel"], correct: 1 },
+                { points: 300, text: "¿Cuál es la fiesta de la Virgen María que es la patrona principal del Opus Dei?", options: ["A) Virgen de Guadalupe", "B) Maternidad divina de María", "C) Inmaculada Concepción", "D) Asunción"], correct: 1 },
+                { points: 400, text: "¿Cuántos son los Patronos que celebra el Opus Dei?", options: ["A) Tres", "B) Dos", "C) Cinco", "D) Cuatro"], correct: 2 },
+                { points: 500, text: "¿Qué día de la semana invitaba San Josemaría a honrar de modo especial a la Eucaristía?", options: ["A) Domingo", "B) Jueves", "C) Sábado", "D) Viernes"], correct: 1 },
+            ]}
+        ];
+
+        let currentQuestion = null;
+        let playedCells = {}; // Objeto para rastrear celdas jugadas: { '0-100': true, '4-500': true, ... }
+
+        // Función para inicializar el tablero
+        function createBoard() {
+            const boardGrid = document.querySelector('#board-screen > div');
+            
+            // Bucle que genera el tablero en el orden correcto (de 100 a 500 verticalmente)
+            // Iteramos por fila (puntuación)
+            for (let qIndex = 0; qIndex < 5; qIndex++) { 
+                // Iteramos por columna (categoría)
+                for (let catIndex = 0; catIndex < 5; catIndex++) { 
+                    const catData = QUESTIONS[catIndex];
+                    const q = catData.questions[qIndex];
+
+                    const cell = document.createElement('div');
+                    // La clave utiliza el índice de categoría y los puntos, asegurando unicidad (ej: 0-100, 4-500)
+                    cell.dataset.key = `${catIndex}-${q.points}`; 
+                    
+                    // qIndex es el índice de la pregunta dentro de su categoría (0=100pts, 4=500pts)
+                    cell.onclick = () => showQuestion(catIndex, qIndex);
+
+                    // Estilo de celda
+                    cell.className = 'jeopardy-cell bg-blue-500 hover:bg-blue-600 text-white font-black text-2xl sm:text-4xl p-4 text-center flex items-center justify-center h-24 sm:h-32';
+                    cell.textContent = q.points; // Muestra el valor: 100, 200, 300, 400, 500
+                    
+                    boardGrid.appendChild(cell);
+                }
+            }
+        }
+
+        // Función para mostrar la pantalla de la pregunta
+        function showQuestion(catIndex, qIndex) {
+            const catData = QUESTIONS[catIndex];
+            const qData = catData.questions[qIndex];
+
+            // Almacenar la pregunta actual para el control de la respuesta
+            currentQuestion = { catIndex, qIndex, data: qData };
+
+            // Ocultar tablero y mostrar pregunta
+            BOARD_ELEMENT.classList.add('hidden');
+            QUESTION_ELEMENT.classList.remove('hidden');
+
+            // Actualizar la información de la pregunta
+            document.getElementById('q-category').textContent = catData.category;
+            document.getElementById('q-points').textContent = qData.points;
+            document.getElementById('q-text').textContent = qData.text;
+            
+            // Limpiar área de feedback
+            document.getElementById('q-feedback').classList.add('hidden');
+            document.getElementById('q-feedback').textContent = '';
+
+            // Generar botones de opciones
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = ''; // Limpiar opciones anteriores
+
+            qData.options.forEach((optionText, index) => {
+                const optionButton = document.createElement('button');
+                optionButton.id = `option-${index}`;
+                optionButton.className = 'option-button w-full text-left bg-gray-100 hover:bg-yellow-100 text-gray-800 font-semibold py-3 px-4 rounded-lg shadow-md border-2 border-gray-200 text-base sm:text-xl';
+                optionButton.textContent = optionText;
+                optionButton.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(optionButton);
+            });
+        }
+
+        // Función para revisar la respuesta seleccionada
+        function checkAnswer(selectedIndex) {
+            if (!currentQuestion) return;
+
+            const qData = currentQuestion.data;
+            const feedbackArea = document.getElementById('q-feedback');
+            const optionsContainer = document.getElementById('options-container');
+
+            // Deshabilitar todos los botones después de la selección
+            Array.from(optionsContainer.children).forEach(btn => {
+                btn.disabled = true;
+                btn.classList.remove('hover:bg-yellow-100');
+            });
+
+            // Marcar la respuesta correcta (ÍNDICE CORRECTO)
+            const correctButton = document.getElementById(`option-${qData.correct}`);
+            correctButton.classList.remove('bg-gray-100', 'bg-yellow-100', 'text-gray-800');
+            correctButton.classList.add('bg-green-600', 'text-white', 'border-green-700');
+
+            // Marcar la respuesta seleccionada por el equipo (si es incorrecta)
+            if (selectedIndex !== qData.correct) {
+                const selectedButton = document.getElementById(`option-${selectedIndex}`);
+                selectedButton.classList.remove('bg-gray-100', 'text-gray-800');
+                selectedButton.classList.add('bg-red-500', 'text-white', 'border-red-700');
+                feedbackArea.textContent = `¡INCORRECTO! La respuesta correcta es la marcada en verde. (Consejo: pierden ${qData.points} puntos).`;
+                feedbackArea.classList.add('text-red-500');
+                feedbackArea.classList.remove('text-green-500');
+            } else {
+                feedbackArea.textContent = `¡CORRECTO! El equipo gana ${qData.points} puntos. ¡Muy bien!`;
+                feedbackArea.classList.add('text-green-500');
+                feedbackArea.classList.remove('text-red-500');
+            }
+
+            feedbackArea.classList.remove('hidden');
+        }
+
+        // Función para volver al tablero y marcar la celda como jugada
+        function returnToBoard() {
+            if (!currentQuestion) return;
+
+            // 1. Marcar la celda en el tablero como jugada
+            const key = `${currentQuestion.catIndex}-${currentQuestion.data.points}`;
+            const cellElement = document.querySelector(`[data-key="${key}"]`);
+            if (cellElement) {
+                cellElement.classList.add('played');
+                cellElement.textContent = 'JUGADA';
+            }
+            
+            // 2. Ocultar pregunta y mostrar tablero
+            QUESTION_ELEMENT.classList.add('hidden');
+            BOARD_ELEMENT.classList.remove('hidden');
+            currentQuestion = null; // Resetear la pregunta actual
+        }
+
+        // Inicializar el juego al cargar la página
+        window.onload = createBoard;
+    </script>
+</body>
+</html>
